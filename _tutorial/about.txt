@@ -7,10 +7,11 @@
 
    *** Summary ***
 
-   This is a fork from https://github.com/panique/php-login.
+   php-login-xdb is forked from https://github.com/panique/php-login.
 
-   The native php-login works with MySQL only. I adjusted it
-to work with multiple databases: MySQL, PostgreSQL and SQLite.
+   php-login works with MySQL only. php-login-xdb is exactly php-login,
+just a patch is applied, so it works with MySQL, PostgreSQL and SQLite
+alike.
 
    Project-Status: Proof-of-concept.
 
@@ -40,8 +41,8 @@ switch between them during runtime.
 
    To have a quickstart with the php-login application, without
 going through the email registration procedure, use the SQLite
-sample database /php-login-xdb/users.SAMPLE.sqlite3. The username
-is 'Hello', and the password 'Helloween'.
+sample database /php-login-xdb/application/users.SAMPLE.sqlite3.
+The username is 'Hello', and the password 'Helloween'.
 
    *** Epilogue ***
 
@@ -57,8 +58,7 @@ databases, the security considerations have to be reviewed.
 for local environments, e.g. evaluation, demo, development, test.
 
    In general, the patching technique used for php-login, might
-possibly apply for for other MySQL confined PHP PDO applications
-as well.
+possibly apply for other MySQL confined PHP PDO applications as well.
 
    To read more about the technique, see file about2.txt.
 
