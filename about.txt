@@ -19,10 +19,6 @@ original php-login to the patched one. So as a prerequisite
 you have to know the original. Before continuing to read, please
 make sure you have read https://github.com/panique/php-login.
 
-   In general, the techniques used to patch php-login might
-possibly apply to other MySQL confined PHP PDO applications
-as well.
-
    *** Installation ***
 
    Follow the instructions in the original documentation.
@@ -57,8 +53,12 @@ So the considerations of the original should apply here as well.
 database access are a little bit different of course. For those
 databases, the security considerations have to be reviewed.
 
-   SQLite is most likely not suited for a productive server,
-just for local environments, e.g. evaluation, demo, development, test.
+   SQLite is most likely not suited for a productive server, just
+for local environments, e.g. evaluation, demo, development, test.
+
+   In general, the patching technique used for php-login, might
+possibly apply for for other MySQL confined PHP PDO applications
+as well.
 
    To read more about the technique, see file about2.txt.
 
