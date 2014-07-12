@@ -1,4 +1,4 @@
-CREATE TABLE IF NOT EXISTS `login`.`notes` (
+CREATE TABLE IF NOT EXISTS `login20140629`.`notes` (
  `note_id` int(11) NOT NULL AUTO_INCREMENT,
  `note_text` text NOT NULL,
  `user_id` bigint(20) NOT NULL,

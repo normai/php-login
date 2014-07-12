@@ -1,5 +1,7 @@
 <?php
 
+include_once '/../../PdoDbMore.php'; // (line # 20140702.023102)
+
 /**
  * OverviewModel
  * Handles data for overviews (pages that show user profiles / lists)
@@ -23,13 +25,17 @@ class OverviewModel
     public function getAllUsersProfiles()
     {
         $sth = $this->db->prepare("SELECT user_id, user_name, user_email, user_active, user_has_avatar FROM users");
+
+        // todo : DB_SWITCH to be processed (PdoDbMore) [# 20140701.0611]
         $sth->execute();
 
         $all_users_profiles = array();
 
-        foreach ($sth->fetchAll() as $user) {
-            // a new object for every user. This is eventually not really optimal when it comes
-            // to performance, but it fits the view style better
+        ////foreach ($sth->fetchAll() as $user) {
+        $x = $sth->fetchAll(PDO::FETCH_OBJ); // Adjust for DB_SWITCH (PdoDbMore) [# 20140702.0332]
+        foreach ($x as $user) {
+            // a new object for every user. This is eventually not really optimal
+            //  when it comes to performance, but it fits the view style better
             $all_users_profiles[$user->user_id] = new stdClass();
             $all_users_profiles[$user->user_id]->user_id = $user->user_id;
             $all_users_profiles[$user->user_id]->user_name = $user->user_name;
@@ -58,10 +64,16 @@ class OverviewModel
         $sql = "SELECT user_id, user_name, user_email, user_active, user_has_avatar
                 FROM users WHERE user_id = :user_id";
         $sth = $this->db->prepare($sql);
-        $sth->execute(array(':user_id' => $user_id));
 
-        $user = $sth->fetch();
-        $count =  $sth->rowCount();
+        // Adjust for DB_USE_MYSQL (# 20140702.0333)
+        ////$sth->execute(array(':user_id' => $user_id));
+        qExecute($sth, array(':user_id' => $user_id));
+
+        ////$user = $sth->fetch();
+        $user = $sth->fetch(PDO::FETCH_OBJ); // Adjust for DB_SWITCH (PdoDbMore) [# 20140702.0331]
+
+        ////$count =  $sth->rowCount();
+        $count = rowCounti($sth, array(':user_id' => $user_id)); // Adjust DB_SWITCH (PdoDbMore) [# 20140702.0334]
 
         if ($count == 1) {
             if (USE_GRAVATAR) {

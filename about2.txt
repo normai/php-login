@@ -1,0 +1,270 @@
+
+   2014-July-12 (Draft)
+
+   ********************************************************
+   Details about php-login for MySQL, PostgreSQL and SQLite
+   ********************************************************
+
+   Content of this page:
+   (1) Intro
+   (2) Features
+   (3) Choosing
+   (4) Technique
+   (5) Patching
+   (6) Security
+   (7) Testing
+   (8) Credits
+   (9) Notes
+
+
+   (1) Intro
+   =========
+
+   This is a fork of
+
+      https://github.com/panique/php-login ,
+
+   currently located on Subversion repository
+
+      http://downtown.trilo.de/svn/php-login/trunk/php-login) .
+
+   This is extendeding php-login (and possibly other MySQL confined
+PHP PDO applications), to use PostgreSQL or SQLite beside MySQL.
+
+   Project-Status: Proof-of-concept.
+
+   This readme.txt describes only the differences to the original
+php-login. Before you continue to read below, please read
+https://github.com/panique/php-login as prerequisite.
+
+   Here, to the php-login code, a patch is applied, comprising
+several steps as described below.
+
+   Please note: This is alpha. Reading the code, you will find
+lines not obeying the coding styleguides, and cruelsome artifacts
+clutter the code. Just it shall run.
+
+
+   (2) Features
+   ============
+
+   (2.1) This shall work exactly as the original php-login, except
+that beside MySQL, it understands PostgreSQL and SQLite.
+
+   (2.2) To add e.g. Oracle or MS-SQL should be not such big thing,
+if according PDO drivers are found. For ODBC, surprises with pecularities
+can be expected.
+
+   (3) Choosing
+   ============
+
+   (3.1) MySQL
+   -----------
+
+   Pros: Has the power to run a big sites.
+
+   Cons: Needs a MySQL server available.
+
+   Note: Insights into database techniques offers thread
+   "[3.0][feature] Support for horizontal MySQL scaling #423"
+   https://github.com/panique/php-login/issues/423
+
+   (3.2) PostgreSQL
+   ----------------
+
+   Pros: Has the power to run a big sites.
+
+   Cons: Needs a PostgreSQL server available.
+
+   Note: ...
+
+   (3.3) SQLite
+   ------------
+
+   Pros: No installation, the PHP code is self contained. Easy
+to deliver and backup.
+
+   Cons: Limited features and capacity.
+
+   Note: The SQLite's databases primary limitation is concurrency
+(many users at the same time on writes). As the main database for
+a login system, a lot of concurrent "writes" will be a big big
+problem. SQLITE is good for a login system on one single device,
+not for a server. (quoting @chambelix)
+
+   Note: As the notable difference to other databases, which typically
+access the data over a network connection, SQLite accesses a file.
+
+   Note: Also accessing single files (in addition to network resources),
+is the MS-SQL databases. But I saw not yet a MS-SQL PDO driver in the
+standard PHP installation. But I guess, there is one out there.
+
+   Note: ...
+
+   (3.4) Others
+   ------------
+
+   More databases are not available, just to mention them. E.g.
+Oracle or MS-SQL might implement straight forward, if according PDO
+drivers are found. For ODBC, surprises can be expected.
+
+
+   (4) Technique
+   =============
+
+   (4.1) The first hints how to translate from MySQL to SQLite were
+gained from project
+
+      https://github.com/panique/php-login-one-file/ .
+
+   (4.2) The ajustions are made empirically emprically. There is not
+yet observed any theory from manuals or best practices. You find much
+room for refinement. Some theories about possible condensation
+towards database abstraction are welcome.
+
+   (4.3) Subjects to adjustion are:
+   (4.3.1) The table creation
+   (4.3.2) The configuration file
+   (4.3.3) The execute() function
+   (4.3.4) The result object access.
+   (4.3.5) The record count.
+   (4.3.6) The AUTO_INCREMENT field.
+
+   (5) Patching
+   =============
+
+   This chapter describes the patch process. It shall be a
+reproducable step by step guide (to some degree).
+
+   (5.1) Add file PdoDbMore.php to the project root directory /php-login/.
+
+   (5.2.1) Table creation
+
+   (5.2.1.1) SQLite has only five different field types, but it
+recognizes all the 'foreign' types and translates them internally.
+So the field types are all left untouched as defined for MySQL.
+(See http://www.sqlite.org/datatype3.html [ws # 20130605.0923])
+
+   (5.2.1.2) SQLite has not so much finetuning options for the CREATE
+command like MySQL. The options which SQLite does not understand are
+just dropped.
+
+   (5.2) Installation. For my convenience (and possibly that of
+others), I retired the plain SQL statement files, and placed
+them inside a dedicated install PHP script. See file [...].
+
+   (5.3) Copy config.TEMPLATE.php to config.php and adjust.
+
+   (5.3.1) [wrong] I introduced "const DB_USE_MYSQL = true/false" to select the
+wanted database. A boolean seems sufficient for now, since if not MySQL
+is wanted, then SQLite is wanted, and nothing else.
+
+   (5.3.2) Connection parameters. See file [...].
+
+   (5.4) Adjust execute() function, only the parameterized lines.
+
+   (5.4.1) It looks like SQLite does not accept the parameters given with
+the execute() function. But it can read the parameters from the bindValue()
+function. So this line for MySQL
+
+      $sth->execute(array(':user_name' => $_POST['user_name'], ':provider_type' => 'DEFAULT'));
+
+   translates to this sequence for SQLite:
+
+      $sth->bindValue(':user_name', $_POST['user_name']);
+      $sth->bindValue(':provider_type', 'DEFAULT');
+      $sth->execute();
+
+   (5.4.2) [wrong] This translation is implemented with the help of the DB_USE_MYSQL
+condition for all occurrences of execute(), means about [20] places.
+Sure, this insistent conditions clutter the source. The condition
+demands being outsourced somehow to a dedicated generic helper function.
+
+   (5.5) The result object access.
+
+   (5.5.1) When MySQL accesses a result field as a property like in
+
+      $s = $result->user_name;
+
+   SQLite wants it accessing as an array element like in
+
+      $s = $result['user_name'];
+
+   (5.5.2) [wrong] This difference is also controlled with the DB_USE_MYSQL condition.
+
+   (5.5.3) ==> This issue is solved by using the PDO::FETCH_OBJ parameter.
+
+   (5.6) The record count from query results.
+
+   (5.6.1) The function $statement->rowCount() executes uncomplainingly for the
+both databases, but may return different results for different databases.
+
+   (5.6.2) See file login_model.php note # 20140628.0511 and reference # 20140627.1922
+http://stackoverflow.com/questions/6041886/count-number-of-rows-in-select-query-with-pdo .
+
+   (5.6.3) So far, I handled the count() occurrences each individual, and have
+not yet settled on one general best solution. (And just a few of the many
+occurrences are processed anyway.)
+
+   (5.6.4) Proposal. It seems count() is wanted on a quite regular basis
+immediately behind execute(). So it might be sensible to outsource
+the both of them together to a dedicated function doing not only
+the execute() but the count() as well.
+
+   (5.7) The AUTO_INCREMENT field.
+
+   ...
+
+   (6) Security
+   ============
+
+   (6.1) When using MySQL, the executed code shall be the same as in the
+original php-login. So the original php-login documentation shall apply.
+
+   (6.2) With SQLite and PostgreSQL, for now do not yet exist security
+analysis.
+
+   (6.3) One specific aspect is the explicit charset assignment.
+About connecting to a MySQL database, the tutorial at
+http://wiki.hashphp.org/PDO_Tutorial_for_MySQL_Developers says: "Adding
+the charset to the DSN is very important for security reasons ...".
+php-login uses for MySQL the 'CHARSET=utf8' and 'COLLATE=utf8_unicode_ci'
+options.
+
+   (6.3.1) Todo: For PostgreSQL no correspondend statement has yet been
+observed. So check, what about this matter on the PostgreSQL side.
+
+   (6.3.2) Todo: For SQLite, also some statement about the charset should
+be found.
+
+   (7) Testing
+   ===========
+
+   (7.1) Batchfiles calling PHP scripts. This is Windows only, but the
+batchfiles should be to translate easy into corresponding Bash files.
+
+   (7.2) PHPUnit [nothing yet].
+
+   (7.3) https://github.com/normai/rest-api-test-example [nothing yet].
+
+   (7.4) Independend dedicated small PHP-Scripts [nothing yet?].
+
+   (7.4) ...
+
+   (8) Credits
+   ===========
+
+   (8.1) Many thanks to https://github.com/panique and contributors
+for the great php-login project.
+
+   (8.2) Many thanks to third party projects:
+   - ...
+
+   (9) Notes
+   =========
+
+   (9.1) Todo: Try to make the process partial automatical. (todo #20140703o0421)
+
+   (9.2) ...
+
+   Bye, Norbert

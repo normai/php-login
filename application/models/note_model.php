@@ -1,5 +1,7 @@
 <?php
 
+include_once '/../../PdoDbMore.php';  // (PdoDbMore)
+
 /**
  * NoteModel
  * This is basically a simple CRUD (Create/Read/Update/Delete) demonstration.
@@ -24,10 +26,14 @@ class NoteModel
     {
         $sql = "SELECT user_id, note_id, note_text FROM notes WHERE user_id = :user_id";
         $query = $this->db->prepare($sql);
-        $query->execute(array(':user_id' => $_SESSION['user_id']));
+
+        // Adjust for DB_SWITCH (PdoDbMore) [# 20140702.0333]
+        ////$query->execute(array(':user_id' => $_SESSION['user_id']));
+        qExecute($query, array(':user_id' => $_SESSION['user_id']));
 
         // fetchAll() is the PDO method that gets all result rows
-        return $query->fetchAll();
+        ////return $query->fetchAll();
+        return $query->fetchAll(PDO::FETCH_OBJ); // Adjust for DB_SWITCH (PdoDbMore) [# 20140702.0332]
     }
 
     /**
@@ -39,10 +45,14 @@ class NoteModel
     {
         $sql = "SELECT user_id, note_id, note_text FROM notes WHERE user_id = :user_id AND note_id = :note_id";
         $query = $this->db->prepare($sql);
-        $query->execute(array(':user_id' => $_SESSION['user_id'], ':note_id' => $note_id));
+
+        // Adjust for DB_SWITCH (PdoDbMore) [# 20140702.0333]
+        ////$query->execute(array(':user_id' => $_SESSION['user_id'], ':note_id' => $note_id));
+        qExecute($query, array(':user_id' => $_SESSION['user_id'], ':note_id' => $note_id));
 
         // fetch() is the PDO method that gets a single result
-        return $query->fetch();
+        ////return $query->fetch();
+        return $query->fetch(PDO::FETCH_OBJ); // Adjust for DB_SWITCH (PdoDbMore) [# 20140702.0331]
     }
 
     /**
@@ -55,11 +65,41 @@ class NoteModel
         // clean the input to prevent for example javascript within the notes.
         $note_text = strip_tags($note_text);
 
-        $sql = "INSERT INTO notes (note_text, user_id) VALUES (:note_text, :user_id)";
-        $query = $this->db->prepare($sql);
-        $query->execute(array(':note_text' => $note_text, ':user_id' => $_SESSION['user_id']));
 
-        $count =  $query->rowCount();
+        // The AUTO_INCREMENT option seems missing in SQLite (PdoDbMore) [seq # 20140702.0421]
+        if ((DB_SWITCH == PdoDbMore::MySQL) or (DB_SWITCH == PdoDbMore::PgSQL))
+        {
+            $sql = "INSERT INTO notes (note_text, user_id) VALUES (:note_text, :user_id)";
+        }
+        else if (DB_SWITCH == PdoDbMore::SQLite)
+        {
+            // manually retrieve the next note id
+            $s = "SELECT MAX(note_id) AS NoteIdMax FROM notes";
+            $q = $this->db->prepare($s);
+            $q->execute();
+            $r = $q->fetch(PDO::FETCH_OBJ);
+            $iNoteIdMax = (int) $r->NoteIdMax;                 // is 0 if no note yet exists
+            if ($iNoteIdMax < 1) { $iNoteIdMax = 10000; }      // set initial id-1, just for fun
+            $iNoteIdMax++;
+
+            // use the manually retrieved next note id
+            $sql = "INSERT INTO notes (note_id, note_text, user_id) VALUES ($iNoteIdMax, :note_text, :user_id)";
+        }
+        else
+        {
+           die('Fatal - Database switch invalid.');
+        }
+
+
+        $query = $this->db->prepare($sql);
+
+        // Adjust for DB_SWITCH (PdoDbMore) [# 20140702.0333]
+        ////$query->execute(array(':note_text' => $note_text, ':user_id' => $_SESSION['user_id']));
+        qExecute($query, array(':note_text' => $note_text, ':user_id' => $_SESSION['user_id']));
+
+        ////$count =  $query->rowCount();
+        $count = rowCounti($query, array(':note_text' => $note_text, ':user_id' => $_SESSION['user_id'])); // Adjust for DB_SWITCH (PdoDbMore) [# 20140702.0334]
+
         if ($count == 1) {
             return true;
         } else {
@@ -82,9 +122,14 @@ class NoteModel
 
         $sql = "UPDATE notes SET note_text = :note_text WHERE note_id = :note_id AND user_id = :user_id";
         $query = $this->db->prepare($sql);
-        $query->execute(array(':note_id' => $note_id, ':note_text' => $note_text, ':user_id' => $_SESSION['user_id']));
 
-        $count =  $query->rowCount();
+        // Adjust for DB_SWITCH (PdoDbMore) [# 20140702.0333]
+        ////$query->execute(array(':note_id' => $note_id, ':note_text' => $note_text, ':user_id' => $_SESSION['user_id']));
+        qExecute($query, array(':note_id' => $note_id, ':note_text' => $note_text, ':user_id' => $_SESSION['user_id']));
+
+        ////$count =  $query->rowCount();
+        $count = rowCounti($query, array(':note_id' => $note_id, ':note_text' => $note_text, ':user_id' => $_SESSION['user_id'])); // Adjust for DB_SWITCH (PdoDbMore) [# 20140702.0334]
+
         if ($count == 1) {
             return true;
         } else {
@@ -103,9 +148,13 @@ class NoteModel
     {
         $sql = "DELETE FROM notes WHERE note_id = :note_id AND user_id = :user_id";
         $query = $this->db->prepare($sql);
-        $query->execute(array(':note_id' => $note_id, ':user_id' => $_SESSION['user_id']));
 
-        $count =  $query->rowCount();
+        // Adjust for DB_SWITCH (PdoDbMore) [# 20140702.0333]
+        ////$query->execute(array(':note_id' => $note_id, ':user_id' => $_SESSION['user_id']));
+        qExecute($query, array(':note_id' => $note_id, ':user_id' => $_SESSION['user_id']));
+
+        ////$count =  $query->rowCount();
+        $count = rowCounti($query, array(':note_id' => $note_id, ':user_id' => $_SESSION['user_id'])); // Adjust for DB_SWITCH (PdoDbMore) [# 20140702.0334]
 
         if ($count == 1) {
             return true;

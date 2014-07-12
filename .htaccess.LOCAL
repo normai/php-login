@@ -1,0 +1,27 @@
+# This file 'htaccess.LOCAL will be active, if you set in your
+# Apache's httpd.config "AccessFileName .htaccess.LOCAL" and
+# then restart Apache.
+
+# This option is necessary to prevent problems when using a
+# controller named "index" and having a root index.php more here:
+# http://stackoverflow.com/q/20918746/1114320
+Options -MultiViews
+
+# turn rewriting on
+RewriteEngine On
+
+# When using the script within a sub-folder, put this path
+# here, like /mysubfolder/ . If your app is in the root of your
+# web folder, then please delete this line or comment it out
+###RewriteBase /php-login/
+RewriteBase /phplogin/php-login-xdb/
+
+RewriteCond %{REQUEST_FILENAME} !-d
+RewriteCond %{REQUEST_FILENAME} !-f
+RewriteCond %{REQUEST_FILENAME} !-l
+
+RewriteRule ^(.+)$ index.php?url=$1 [QSA,L]
+
+# Define error page (seq # 20140225.0721)
+# No, php-login has a error view page.
+###ErrorDocument 404 /work/php-login/status404.html

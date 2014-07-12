@@ -1,0 +1,67 @@
+
+   2014-July-12
+
+   ******************************************
+   php-login for MySQL, PostgreSQL and SQLite
+   ******************************************
+
+   *** Summary ***
+
+   This is a fork from https://github.com/panique/php-login.
+
+   The native php-login works with MySQL only. I adjusted it
+to work with multiple databases: MySQL, PostgreSQL and SQLite.
+
+   Project-Status: Proof-of-concept.
+
+   The project here is only about the difference from the
+original php-login to the patched one. So as a prerequisite
+you have to know the original. Before continuing to read, please
+make sure you have read https://github.com/panique/php-login.
+
+   In general, the techniques used to patch php-login might
+possibly apply to other MySQL confined PHP PDO applications
+as well.
+
+   *** Installation ***
+
+   Follow the instructions in the original documentation.
+
+   Additionally, in /php-login/application/config/config.php,
+you find the database selection switch, which has to be set,
+along with the according database settings.
+
+   To work with a database, PHP must be configured accordingly.
+Make sure, that in php.ini the wanted lines are opened:
+
+      - extension=php_pdo_mysql.dll
+      - extension=php_pdo_pgsql.dll
+      - extension=php_pdo_sqlite.dll
+
+   If you have all three databases available on your machine,
+provide them all, and with the DB_SWITCH setting in conf.php,
+switch between them during runtime.
+
+   To have a quickstart with the php-login application, without
+going through the email registration procedure, use the SQLite
+sample database /php-login-xdb/users.SAMPLE.sqlite3. The username
+is 'Hello', and the password 'Helloween'.
+
+   *** Epilogue ***
+
+   php-login is a security oriented project. For MySQL, in php-login-xdb
+the exactly same code should be executed here as in the original.
+So the considerations of the original should apply here as well.
+
+   With PostgreSQL and SQLite, the code pathes regarding the
+database access are a little bit different of course. For those
+databases, the security considerations have to be reviewed.
+
+   SQLite is most likely not suited for a productive server,
+just for local environments, e.g. evaluation, demo, development, test.
+
+   To read more about the technique, see file about2.txt.
+
+   Please feedback any issues.
+
+   Bye, Norbert

@@ -7,6 +7,8 @@
  */
 use Gregwar\Captcha\CaptchaBuilder;
 
+include_once "/../../PdoDbMore.php"; // (line # 20140702.0231)
+
 class LoginModel
 {
     /**
@@ -50,8 +52,56 @@ class LoginModel
                                           AND user_provider_type = :provider_type");
         // DEFAULT is the marker for "normal" accounts (that have a password etc.)
         // There are other types of accounts that don't have passwords etc. (FACEBOOK)
-        $sth->execute(array(':user_name' => $_POST['user_name'], ':provider_type' => 'DEFAULT'));
-        $count =  $sth->rowCount();
+        /*
+        if (DB_USE_MYSQL) // (condition # 20140628.0321)
+        {
+            $sth->execute(array(':user_name' => $_POST['user_name'], ':provider_type' => 'DEFAULT'));
+        } else {
+           
+            // [note # 20140628.0342] Using Kint::d() causes later problem
+            //   with header(). And print_r() curiously is executed, but the
+            //   output never shows up.
+            ////d($this->db);
+            ////d($sth);
+            //print_r($sth);
+
+            // (seq # 20140628.0322)
+            $sth->bindValue(':user_name', $_POST['user_name']);
+            $sth->bindValue(':provider_type', 'DEFAULT');
+            $sth->execute();
+        }
+        */
+        // Adjust for DB_USE_MYSQL (# 20140702.0333)
+        ////$sth->execute(array(':user_name' => $_POST['user_name'], ':provider_type' => 'DEFAULT'));
+        qExecute($sth, array(':user_name' => $_POST['user_name'], ':provider_type' => 'DEFAULT'));
+
+        ////$result = $sth->fetch(); // line is shifted here from below (added # 20140628.0722)
+
+        /*
+        if (DB_USE_MYSQL) // (condition # 20140628.0621)
+        {
+            $count = $sth->rowCount();                 // original line, does not work with SQLite
+        }
+        else
+        {
+            // get the count with a dedicated SELECT statement (seq # 20140628.0622)
+            // note : Since we fetch() the result far below anyway, a better
+            //    alternative to this statement were to iterate over the result
+            //    and test it for being exactly one line.
+            $sth2 = $this->db->prepare( "SELECT count() AS caunt FROM users
+                                         WHERE ( user_name = :user_name OR user_email = :user_name)
+                                          AND user_provider_type = :provider_type"
+                                           );
+            $sth2->bindValue(':user_name', $_POST['user_name']);
+            $sth2->bindValue(':provider_type', 'DEFAULT');
+            $sth2->execute();
+            $row = $sth2->fetch();
+            $count = $row['caunt'];
+        }
+        */
+        ////$count = recCount($this->db, $sth,  array(':user_name' => $_POST['user_name'], ':provider_type' => 'DEFAULT'));
+        $count = rowCounti($sth,  array(':user_name' => $_POST['user_name'], ':provider_type' => 'DEFAULT'));
+
         // if there's NOT one result
         if ($count != 1) {
             // was FEEDBACK_USER_DOES_NOT_EXIST before, but has changed to FEEDBACK_LOGIN_FAILED
@@ -60,19 +110,40 @@ class LoginModel
             return false;
         }
 
-        // fetch one row (we only have one result)
-        $result = $sth->fetch();
+        // fetch one row (we only have one result)%
+        ////$result = $sth->fetch();  ////// line is shifted above, fetch() seems spoiled perhaps by intermittent other execute/fetch (note # 20140628.0721)
+        $result = $sth->fetch(PDO::FETCH_OBJ); // Adjust for DB_SWITCH (PdoDbMore) [# 20140702.0331]
 
-        // block login attempt if somebody has already failed 3 times and the last login attempt is less than 30sec ago
-        if (($result->user_failed_logins >= 3) AND ($result->user_last_failed_login > (time()-30))) {
-            $_SESSION["feedback_negative"][] = FEEDBACK_PASSWORD_WRONG_3_TIMES;
-            return false;
-        }
+        // block login attempt if somebody has already failed 3 times 
+        //  and the last login attempt is less than 30 sec ago
+        ////if (DB_USE_MYSQL) // (condi # 20140628.0741)
+        ////{
+            if (($result->user_failed_logins >= 3) AND ($result->user_last_failed_login > (time()-30))) {
+                $_SESSION["feedback_negative"][] = FEEDBACK_PASSWORD_WRONG_3_TIMES;
+                return false;
+            }
+        ////} else {
+        ////    if (($result['user_failed_logins'] >= 3) AND ($result['user_last_failed_login'] > (time()-30))) {
+        ////        $_SESSION["feedback_negative"][] = FEEDBACK_PASSWORD_WRONG_3_TIMES;
+        ////        return false;
+        ////    }
+        ////}
 
         // check if hash of provided password matches the hash in the database
-        if (password_verify($_POST['user_password'], $result->user_password_hash)) {
+        $resultUserPasswordHash = $result->user_password_hash;
+        $resultUserActive = $result->user_active;
+        $resultUserId = $result->user_id;
+        $resultUserName = $result->user_name;
+        $resultUserEmail = $result->user_email;
+        $resultUserAccountType = $result->user_account_type;
+        $resultUserLastFailedLogin = $result->user_last_failed_login;
 
-            if ($result->user_active != 1) {
+
+        ////if ( password_verify($_POST['user_password'], $result->user_password_hash )) {
+        if ( password_verify($_POST['user_password'], $resultUserPasswordHash )) {
+
+            ////if ($result->user_active != 1) {
+            if ($resultUserActive != 1) {
                 $_SESSION["feedback_negative"][] = FEEDBACK_ACCOUNT_NOT_ACTIVATED_YET;
                 return false;
             }
@@ -80,22 +151,39 @@ class LoginModel
             // login process, write the user data into session
             Session::init();
             Session::set('user_logged_in', true);
-            Session::set('user_id', $result->user_id);
-            Session::set('user_name', $result->user_name);
-            Session::set('user_email', $result->user_email);
-            Session::set('user_account_type', $result->user_account_type);
+            ////Session::set('user_id', $result->user_id);
+            Session::set('user_id', $resultUserId);
+            ////Session::set('user_name', $result->user_name);
+            Session::set('user_name', $resultUserName);
+            ////Session::set('user_email', $result->user_email);
+            Session::set('user_email', $resultUserEmail);
+            ////Session::set('user_account_type', $result->user_account_type);
+            Session::set('user_account_type', $resultUserAccountType);
             Session::set('user_provider_type', 'DEFAULT');
             // put native avatar path into session
             Session::set('user_avatar_file', $this->getUserAvatarFilePath());
             // put Gravatar URL into session
-            $this->setGravatarImageUrl($result->user_email, AVATAR_SIZE);
+            $this->setGravatarImageUrl($resultUserEmail, AVATAR_SIZE);
 
             // reset the failed login counter for that user (if necessary)
-            if ($result->user_last_failed_login > 0) {
+            ////if ($result->user_last_failed_login > 0) {
+            if ($resultUserLastFailedLogin > 0) {
                 $sql = "UPDATE users SET user_failed_logins = 0, user_last_failed_login = NULL
                         WHERE user_id = :user_id AND user_failed_logins != 0";
                 $sth = $this->db->prepare($sql);
-                $sth->execute(array(':user_id' => $result->user_id));
+                /*
+                if (DB_USE_MYSQL) // (condition # 20140628.0631)
+                {
+                    $sth->execute(array(':user_id' => $result->user_id));
+                } else {
+                    // (seq # 20140628.0632)
+                    $sth->bindValue(':user_id', $result['user_id']);
+                    $sth->execute();
+                }
+                */
+                // Adjust for DB_USE_MYSQL (# 20140702.0333)
+                ////$sth->execute(array(':user_id' => $result->user_id));
+                qExecute($sth, array(':user_id' => $result->user_id));
             }
 
             // generate integer-timestamp for saving of last-login date
@@ -104,7 +192,21 @@ class LoginModel
             // database, not the session-login on every page request
             $sql = "UPDATE users SET user_last_login_timestamp = :user_last_login_timestamp WHERE user_id = :user_id";
             $sth = $this->db->prepare($sql);
-            $sth->execute(array(':user_id' => $result->user_id, ':user_last_login_timestamp' => $user_last_login_timestamp));
+
+            /*
+            if (DB_USE_MYSQL) // (condition # 20140628.0641)
+            {
+                $sth->execute(array(':user_id' => $result->user_id, ':user_last_login_timestamp' => $user_last_login_timestamp));
+            } else {
+                // (seq # 20140628.0642)
+                $sth->bindValue(':user_id', $result['user_id']);
+                $sth->bindValue(':user_last_login_timestamp', $user_last_login_timestamp);
+                $sth->execute();
+            }
+            */
+            // Adjust for DB_USE_MYSQL (# 20140702.0333)
+            ////$sth->execute(array(':user_id' => $result->user_id, ':user_last_login_timestamp' => $user_last_login_timestamp));
+            qExecute($sth, array(':user_id' => $result->user_id, ':user_last_login_timestamp' => $user_last_login_timestamp));
 
             // if user has checked the "remember me" checkbox, then write cookie
             if (isset($_POST['user_rememberme'])) {
@@ -115,10 +217,34 @@ class LoginModel
                 // write that token into database
                 $sql = "UPDATE users SET user_rememberme_token = :user_rememberme_token WHERE user_id = :user_id";
                 $sth = $this->db->prepare($sql);
-                $sth->execute(array(':user_rememberme_token' => $random_token_string, ':user_id' => $result->user_id));
+                /*
+                if (DB_USE_MYSQL) // (condition # 20140628.0651)
+                {
+                    $sth->execute(array(':user_rememberme_token' => $random_token_string, ':user_id' => $result->user_id));
+                } else {
+                    // (seq # 20140628.0652)
+                    $sth->bindValue(':user_rememberme_token', $random_token_string);
+                    $sth->bindValue(':user_id', $result['user_id']);
+                    $sth->execute();
+                }
+                */
+                // Adjust for DB_USE_MYSQL (# 20140702.0333)
+                ////$sth->execute(array(':user_rememberme_token' => $random_token_string, ':user_id' => $result->user_id));
+                qExecute($sth, array(':user_rememberme_token' => $random_token_string, ':user_id' => $result->user_id));
 
                 // generate cookie string that consists of user id, random string and combined hash of both
+                /*
+                if (DB_USE_MYSQL) // (condi # 20140628.0711)
+                {
+                    $cookie_string_first_part = $result->user_id . ':' . $random_token_string;
+                } else {
+                    // (seq # 20140628.0712)
+                    // The same line will probably work as well for MySQL
+                    $cookie_string_first_part = $result[user_id] . ':' . $random_token_string;
+                }
+                */
                 $cookie_string_first_part = $result->user_id . ':' . $random_token_string;
+
                 $cookie_string_hash = hash('sha256', $cookie_string_first_part);
                 $cookie_string = $cookie_string_first_part . ':' . $cookie_string_hash;
 
@@ -132,10 +258,24 @@ class LoginModel
         } else {
             // increment the failed login counter for that user
             $sql = "UPDATE users
-                    SET user_failed_logins = user_failed_logins+1, user_last_failed_login = :user_last_failed_login
+                    SET user_failed_logins = user_failed_logins + 1, user_last_failed_login = :user_last_failed_login
                     WHERE user_name = :user_name OR user_email = :user_name";
             $sth = $this->db->prepare($sql);
-            $sth->execute(array(':user_name' => $_POST['user_name'], ':user_last_failed_login' => time() ));
+            /*
+            if (DB_USE_MYSQL) // (condition # 20140628.0731)
+            {
+                $sth->execute(array(':user_name' => $_POST['user_name'], ':user_last_failed_login' => time() ));
+            } else {
+                // (seq # 20140628.0732)
+                $sth->bindValue(':user_name', $_POST['user_name']);
+                $sth->bindValue(':user_last_failed_login', time());
+                $sth->execute();
+            }
+            */
+            // Adjust for DB_USE_MYSQL (# 20140702.0333)
+            ////$sth->execute(array(':user_name' => $_POST['user_name'], ':user_last_failed_login' => time() ));
+            qExecute($sth, array(':user_name' => $_POST['user_name'], ':user_last_failed_login' => time() ));
+
             // feedback message
             $_SESSION["feedback_negative"][] = FEEDBACK_PASSWORD_WRONG;
             return false;
@@ -180,11 +320,18 @@ class LoginModel
                                        AND user_rememberme_token = :user_rememberme_token
                                        AND user_rememberme_token IS NOT NULL
                                        AND user_provider_type = :provider_type");
-        $query->execute(array(':user_id' => $user_id, ':user_rememberme_token' => $token, ':provider_type' => 'DEFAULT'));
-        $count =  $query->rowCount();
+
+        // Adjust for DB_USE_MYSQL (# 20140702.0333)
+        ////$query->execute(array(':user_id' => $user_id, ':user_rememberme_token' => $token, ':provider_type' => 'DEFAULT'));
+        qExecute($query, array(':user_id' => $user_id, ':user_rememberme_token' => $token, ':provider_type' => 'DEFAULT'));
+
+        ////$count = $query->rowCount();
+        $count = rowCounti($query, array(':user_id' => $user_id, ':user_rememberme_token' => $token, ':provider_type' => 'DEFAULT')); // Adjust for DB_SWITCH (# 20140702.0334)
+
         if ($count == 1) {
             // fetch one row (we only have one result)
-            $result = $query->fetch();
+            ////$result = $query->fetch();
+            $result = $query->fetch(PDO::FETCH_OBJ); // Adjust for DB_SWITCH (PdoDbMore) [# 20140702.0331]
             // TODO: this block is same/similar to the one from login(), maybe we should put this in a method
             // write data into session
             Session::init();
@@ -204,7 +351,10 @@ class LoginModel
             // database, not the session-login on every page request
             $sql = "UPDATE users SET user_last_login_timestamp = :user_last_login_timestamp WHERE user_id = :user_id";
             $sth = $this->db->prepare($sql);
-            $sth->execute(array(':user_id' => $user_id, ':user_last_login_timestamp' => $user_last_login_timestamp));
+
+            // Adjust for DB_SWITCH (PdoDbMore) [# 20140702.0333]
+            ////$sth->execute(array(':user_id' => $user_id, ':user_last_login_timestamp' => $user_last_login_timestamp));
+            qExecute($sth, array(':user_id' => $user_id, ':user_last_login_timestamp' => $user_last_login_timestamp));
 
             // NOTE: we don't set another rememberme-cookie here as the current cookie should always
             // be invalid after a certain amount of time, so the user has to login with username/password
@@ -242,14 +392,21 @@ class LoginModel
                                            FROM users
                                            WHERE user_facebook_uid = :user_facebook_uid
                                              AND user_provider_type = :provider_type");
-                $query->execute(array(':user_facebook_uid' => $facebook_user_data["id"], ':provider_type' => 'FACEBOOK'));
-                $count =  $query->rowCount();
+
+                // Adjust for DB_SWITCH (PdoDbMore) [# 20140702.0333]
+                ////$query->execute(array(':user_facebook_uid' => $facebook_user_data["id"], ':provider_type' => 'FACEBOOK'));
+                qExecute($query, array(':user_facebook_uid' => $facebook_user_data["id"], ':provider_type' => 'FACEBOOK'));
+
+                ////$count =  $query->rowCount();
+                $count =  rowCounti($query, array(':user_facebook_uid' => $facebook_user_data["id"], ':provider_type' => 'FACEBOOK')); // Adjust for DB_SWITCH (PdoDbMore) [# 20140702.0334]
+
                 if ($count != 1) {
                     $_SESSION["feedback_negative"][] = FEEDBACK_FACEBOOK_LOGIN_NOT_REGISTERED;
                     return false;
                 }
 
-                $result = $query->fetch();
+                ////$result = $query->fetch();
+                $result = $query->fetch(PDO::FETCH_OBJ); // Adjust for DB_SWITCH (PdoDbMore) [# 20140702.0331]
                 // put user data into session
                 Session::init();
                 Session::set('user_logged_in', true);
@@ -266,7 +423,10 @@ class LoginModel
                 // database, not the session-login on every page request
                 $sql = "UPDATE users SET user_last_login_timestamp = :user_last_login_timestamp WHERE user_id = :user_id";
                 $sth = $this->db->prepare($sql);
-                $sth->execute(array(':user_id' => $result->user_id, ':user_last_login_timestamp' => $user_last_login_timestamp));
+
+                // Adjust for DB_SWITCH (PdoDbMore) [# 20140702.0333]
+                ////$sth->execute(array(':user_id' => $result->user_id, ':user_last_login_timestamp' => $user_last_login_timestamp));
+                qExecute($sth, array(':user_id' => $result->user_id, ':user_last_login_timestamp' => $user_last_login_timestamp));
 
                 return true;
 
@@ -343,16 +503,28 @@ class LoginModel
 
         // check if new username already exists
         $query = $this->db->prepare("SELECT user_id FROM users WHERE user_name = :user_name");
-        $query->execute(array(':user_name' => $user_name));
-        $count =  $query->rowCount();
+
+        // Adjust for DB_SWITCH (PdoDbMore) [# 20140702.0333]
+        ////$query->execute(array(':user_name' => $user_name));
+        qExecute($query, array(':user_name' => $user_name));
+
+        ////$count =  $query->rowCount();
+        $count = rowCounti($query, array(':user_name' => $user_name)); // Adjust for DB_SWITCH (PdoDbMore) [# 20140702.0334]
+
         if ($count == 1) {
             $_SESSION["feedback_negative"][] = FEEDBACK_USERNAME_ALREADY_TAKEN;
             return false;
         }
 
         $query = $this->db->prepare("UPDATE users SET user_name = :user_name WHERE user_id = :user_id");
-        $query->execute(array(':user_name' => $user_name, ':user_id' => $_SESSION['user_id']));
-        $count =  $query->rowCount();
+
+        // Adjust for DB_SWITCH (PdoDbMore) [# 20140702.0333]
+        ////$query->execute(array(':user_name' => $user_name, ':user_id' => $_SESSION['user_id']));
+        qExecute($query, array(':user_name' => $user_name, ':user_id' => $_SESSION['user_id']));
+
+        ////$count =  $query->rowCount();
+        $count =  rowCounti($query, array(':user_name' => $user_name, ':user_id' => $_SESSION['user_id'])); // Adjust for DB_SWITCH (PdoDbMore) [# 20140702.0334]
+
         if ($count == 1) {
             Session::set('user_name', $user_name);
             $_SESSION["feedback_positive"][] = FEEDBACK_USERNAME_CHANGE_SUCCESSFUL;
@@ -389,8 +561,14 @@ class LoginModel
 
         // check if user's email already exists
         $query = $this->db->prepare("SELECT * FROM users WHERE user_email = :user_email");
-        $query->execute(array(':user_email' => $_POST['user_email']));
-        $count =  $query->rowCount();
+
+        // Adjust for DB_SWITCH (PdoDbMore) [# 20140702.0333]
+        ////$query->execute(array(':user_email' => $_POST['user_email']));
+        qExecute(array(':user_email' => $_POST['user_email']));
+
+        ////$count =  $query->rowCount();
+        $count = rowCounti($query, array(':user_email' => $_POST['user_email'])); // Adjust for DB_SWITCH (PdoDbMore) [# 20140702.0334]
+
         if ($count == 1) {
             $_SESSION["feedback_negative"][] = FEEDBACK_USER_EMAIL_ALREADY_TAKEN;
             return false;
@@ -399,8 +577,14 @@ class LoginModel
         // cleaning and write new email to database
         $user_email = substr(strip_tags($_POST['user_email']), 0, 64);
         $query = $this->db->prepare("UPDATE users SET user_email = :user_email WHERE user_id = :user_id");
-        $query->execute(array(':user_email' => $user_email, ':user_id' => $_SESSION['user_id']));
-        $count =  $query->rowCount();
+
+        // Adjust for DB_SWITCH (PdoDbMore) [# 20140702.0333]
+        ////$query->execute(array(':user_email' => $user_email, ':user_id' => $_SESSION['user_id']));
+        qExecute($query, array(':user_email' => $user_email, ':user_id' => $_SESSION['user_id']));
+
+        ////$count =  $query->rowCount();
+        $count = rowCounti($query, array(':user_email' => $user_email, ':user_id' => $_SESSION['user_id'])); // Adjust for DB_SWITCH (PdoDbMore) [# 20140702.0334]
+
         if ($count != 1) {
             $_SESSION["feedback_negative"][] = FEEDBACK_UNKNOWN_ERROR;
             return false;
@@ -465,8 +649,44 @@ class LoginModel
 
             // check if username already exists
             $query = $this->db->prepare("SELECT * FROM users WHERE user_name = :user_name");
-            $query->execute(array(':user_name' => $user_name));
-            $count =  $query->rowCount();
+            
+            // allow for SQLite
+            // ref : File https://github.com/panique/php-login-one-file/trunk/index.php
+            //        location 'Btw that's the weird way to get num_rows in PDO with SQLite:'
+            // ref : http://php.net/manual/en/pdostatement.rowcount.php (# 20140627.1921)
+            // ref : http://stackoverflow.com/questions/6041886/count-number-of-rows-in-select-query-with-pdo (# 20140627.1922)
+            /*
+            if (DB_USE_MYSQL) // (condition # 20140627.1911)
+            {
+                $query->execute(array(':user_name' => $user_name));
+            }
+            else
+            {
+
+                ////// (seq # 20140627.1912)
+                ////$x = $this->db->errorInfo(); // (experiment # 20140627.1941) results in ([0] -> '')
+                ////$query = $this->db->prepare("SELECT * FROM users WHERE user_name = :user_name");
+                ////$query->errorInfo();// (experiment # 20140627.1942)
+                ////$query->execute(array(':user_name' => $user_name)); // Error 'Call to a member function execute() on a non-object' (# 20140627.1931)
+                
+                // (seq # 20140628.0351)
+                $query->bindValue(':user_name', $user_name);
+                $query->execute();
+
+                // (note 20140628.0411)
+                // Finding: It looks as if with SQLite just execute() cannot
+                // be called with the parameters, but must be called plain.
+                // And the parmaters have to be processed before calling
+                // execute() with the bindValue() function.
+            }
+            */
+            // Adjust for DB_SWITCH (PdoDbMore) [# 20140702.0333]
+            ////$query->execute(array(':user_name' => $user_name));
+            qExecute($query, array(':user_name' => $user_name));
+
+            ////$count =  $query->rowCount();
+            $count = rowCounti($query, array(':user_name' => $user_name)); // Adjust for DB_SWITCH (PdoDbMore) [# 20140702.0334]
+
             if ($count == 1) {
                 $_SESSION["feedback_negative"][] = FEEDBACK_USERNAME_ALREADY_TAKEN;
                 return false;
@@ -474,8 +694,24 @@ class LoginModel
 
             // check if email already exists
             $query = $this->db->prepare("SELECT user_id FROM users WHERE user_email = :user_email");
-            $query->execute(array(':user_email' => $user_email));
-            $count =  $query->rowCount();
+
+            /*
+            if (DB_USE_MYSQL) // (condition # 20140628.0421)
+            {
+                $query->execute(array(':user_email' => $user_email));
+            } else {
+                // (seq # 20140628.0422)
+                $query->bindValue(':user_email', $user_email);
+                $query->execute();
+            }
+            */
+            // Adjust for DB_SWITCH (PdoDbMore) [# 20140702.0333]
+            ////$query->execute(array(':user_email' => $user_email));
+            qExecute($query, array(':user_email' => $user_email));
+
+            ////$count =  $query->rowCount();
+            $count = rowCounti($query, array(':user_email' => $user_email)); // Adjust for DB_SWITCH (PdoDbMore) [# 20140702.0334]
+
             if ($count == 1) {
                 $_SESSION["feedback_negative"][] = FEEDBACK_USER_EMAIL_ALREADY_TAKEN;
                 return false;
@@ -490,13 +726,53 @@ class LoginModel
             $sql = "INSERT INTO users (user_name, user_password_hash, user_email, user_creation_timestamp, user_activation_hash, user_provider_type)
                     VALUES (:user_name, :user_password_hash, :user_email, :user_creation_timestamp, :user_activation_hash, :user_provider_type)";
             $query = $this->db->prepare($sql);
-            $query->execute(array(':user_name' => $user_name,
+
+            /*
+            if (DB_USE_MYSQL) // (condition # 20140628.0431)
+            {
+                $query->execute(array(':user_name' => $user_name,
                                   ':user_password_hash' => $user_password_hash,
                                   ':user_email' => $user_email,
                                   ':user_creation_timestamp' => $user_creation_timestamp,
                                   ':user_activation_hash' => $user_activation_hash,
                                   ':user_provider_type' => 'DEFAULT'));
-            $count =  $query->rowCount();
+            } else {
+                // (seq # 20140628.0432)
+                //  [execute() error "constraint failed - users.user_active may
+                //   not be NULL", obviously because "DEFAULT '0'" during the
+                //   database creation was missing.
+                $query->bindValue(':user_name', $user_name);
+                $query->bindValue(':user_password_hash', $user_password_hash);
+                $query->bindValue(':user_email', $user_email);
+                $query->bindValue(':user_creation_timestamp', $user_creation_timestamp);
+                $query->bindValue(':user_activation_hash', $user_activation_hash);
+                $query->bindValue(':user_provider_type', 'DEFAULT');
+                $query->execute();
+            }
+            */
+            // Adjust for DB_SWITCH (PdoDbMore) [# 20140702.0333]
+            ////$query->execute(array(':user_name' => $user_name,
+            ////                  ':user_password_hash' => $user_password_hash,
+            ////                  ':user_email' => $user_email,
+            ////                  ':user_creation_timestamp' => $user_creation_timestamp,
+            ////                  ':user_activation_hash' => $user_activation_hash,
+            ////                  ':user_provider_type' => 'DEFAULT'));
+            qExecute($query, array(':user_name' => $user_name,
+                              ':user_password_hash' => $user_password_hash,
+                              ':user_email' => $user_email,
+                              ':user_creation_timestamp' => $user_creation_timestamp,
+                              ':user_activation_hash' => $user_activation_hash,
+                              ':user_provider_type' => 'DEFAULT'));
+
+
+            ////$count = $query->rowCount();
+            $count = rowCounti($query, array(':user_name' => $user_name,
+                              ':user_password_hash' => $user_password_hash,
+                              ':user_email' => $user_email,
+                              ':user_creation_timestamp' => $user_creation_timestamp,
+                              ':user_activation_hash' => $user_activation_hash,
+                              ':user_provider_type' => 'DEFAULT')); // Adjust for DB_SWITCH (PdoDbMore) [# 20140702.0334]
+
             if ($count != 1) {
                 $_SESSION["feedback_negative"][] = FEEDBACK_ACCOUNT_CREATION_FAILED;
                 return false;
@@ -504,12 +780,65 @@ class LoginModel
 
             // get user_id of the user that has been created, to keep things clean we DON'T use lastInsertId() here
             $query = $this->db->prepare("SELECT user_id FROM users WHERE user_name = :user_name");
-            $query->execute(array(':user_name' => $user_name));
-            if ($query->rowCount() != 1) {
+
+            /*
+            if (DB_USE_MYSQL) // (condition # 20140628.0441)
+            {
+                $query->execute(array(':user_name' => $user_name));
+                $iRowCount = $query->rowCount(); // (added # 20140628.0532)
+            } else {
+
+                // (seq # 20140628.0442)
+                $query->bindValue(':user_name', $user_name);
+                $query->execute();
+
+                $iDbg = $query->rowCount();
+                $arErr = $this->db->errorInfo();  // (# 20140628.0512) => ([0] = "00000", [1] = '', [2] = '')
+                $mxErr = $this->db->errorCode();  // (# 20140628.0513) => "00000"
+
+                // (note # 20140628.0511)
+                // The error information looks like no error, may rowCount() not be
+                // the wanted function? But the rowCount() higher above has yielded '1'.
+
+                // ref : http://stackoverflow.com/questions/6041886/count-number-of-rows-in-select-query-with-pdo (# 20140627.1922)
+                //    This tells:
+                //    -------------------------
+                //    PDOStatement::rowCount() returns the number of rows affected
+                //    by the last DELETE, INSERT, or UPDATE statement executed by
+                //    the corresponding PDOStatement object.
+                //
+                //    If the last SQL statement executed by the associated PDOStatement
+                //    was a SELECT statement, some databases may return the number of
+                //    rows returned by that statement. However, this behaviour is not
+                //    guaranteed for all databases and should not be relied on for
+                //    portable applications.
+                //    -------------------------
+
+                // so get the count with a dedicated SELECT statement (seq # 20140628.0531)
+                $que = $this->db->prepare("SELECT count() AS count FROM users WHERE user_name = :user_name");
+                $que->bindValue(':user_name', $user_name);
+                $que->execute();
+                ////$row = $que->fetch();
+                $row = $que->fetch(PDO::FETCH_OBJ); // Adjust for DB_USE_MYSQL (# 20140702.0331)
+                $iRowCount = $row['count'];
+            }
+            */
+
+            // Adjust for DB_SWITCH (PdoDbMore) [# 20140702.0333]
+            ////$query->execute(array(':user_name' => $user_name));
+            qExecute($query, array(':user_name' => $user_name));
+
+            ////$iRowCount = $query->rowCount(); // (added # 20140628.0532)
+            $iRowCount = rowCounti($query, array(':user_name' => $user_name)); // Adjust for DB_SWITCH (PdoDbMore) [# 20140702.0334]
+
+
+            ////if ($query->rowCount() != 1) {                 // original line, does not work with SQLite
+            if ($iRowCount != 1) {                             // (replacement #  # 20140628.0533)
                 $_SESSION["feedback_negative"][] = FEEDBACK_UNKNOWN_ERROR;
                 return false;
             }
-            $result_user_row = $query->fetch();
+            ////$result_user_row = $query->fetch();
+            $result_user_row = $query->fetch(PDO::FETCH_OBJ); // Adjust for DB_SWITCH (PdoDbMore) [# 20140702.0331]
             $user_id = $result_user_row->user_id;
 
             // send verification email, if verification email sending failed: instantly delete the user
@@ -518,7 +847,18 @@ class LoginModel
                 return true;
             } else {
                 $query = $this->db->prepare("DELETE FROM users WHERE user_id = :last_inserted_id");
-                $query->execute(array(':last_inserted_id' => $user_id));
+                //////if (DB_USE_MYSQL)                              // (condition # 20140628.0451)
+                //////{
+                //////    $query->execute(array(':last_inserted_id' => $user_id));
+                //////} else {
+                //////    // (seq # 20140628.0452)
+                //////    $query->bindValue(':last_inserted_id', $user_id);
+                //////    $query->execute();
+                //////}
+                // Adjust for DB_SWITCH (PdoDbMore) [# 20140702.0333]
+                ////$query->execute(array(':last_inserted_id' => $user_id));
+                qExecute($query, array(':last_inserted_id' => $user_id));
+
                 $_SESSION["feedback_negative"][] = FEEDBACK_VERIFICATION_MAIL_SENDING_FAILED;
                 return false;
             }
@@ -580,7 +920,8 @@ class LoginModel
     }
 
     /**
-     * checks the email/verification code combination and set the user's activation status to true in the database
+     * checks the email/verification code combination and set the user's
+     *  activation status to true in the database
      * @param int $user_id user id
      * @param string $user_activation_verification_code verification token
      * @return bool success status
@@ -590,9 +931,21 @@ class LoginModel
         $sth = $this->db->prepare("UPDATE users
                                    SET user_active = 1, user_activation_hash = NULL
                                    WHERE user_id = :user_id AND user_activation_hash = :user_activation_hash");
-        $sth->execute(array(':user_id' => $user_id, ':user_activation_hash' => $user_activation_verification_code));
+        //////if (DB_USE_MYSQL) // (condi # 20140628.0611)
+        //////{
+        //////    $sth->execute(array(':user_id' => $user_id, ':user_activation_hash' => $user_activation_verification_code));
+        //////} else {
+        //////    // (seq # 20140628.0612)
+        //////    $sth->bindValue(':user_id', $user_id);
+        //////    $sth->bindValue(':user_activation_hash', $user_activation_verification_code);
+        //////    $sth->execute();
+        //////}
+        // Adjust for DB_SWITCH (PdoDbMore) [# 20140702.0333]
+        ////$sth->execute(array(':user_id' => $user_id, ':user_activation_hash' => $user_activation_verification_code));
+        qExecute($sth, array(':user_id' => $user_id, ':user_activation_hash' => $user_activation_verification_code));
 
-        if ($sth->rowCount() == 1) {
+        ////if ($sth->rowCount() == 1) {
+        if (rowCounti($sth, array(':user_id' => $user_id, ':user_activation_hash' => $user_activation_verification_code)) == 1) { // Adjust for DB_SWITCH (PdoDbMore) [# 20140702.0334]
             $_SESSION["feedback_positive"][] = FEEDBACK_ACCOUNT_ACTIVATION_SUCCESSFUL;
             return true;
         } else {
@@ -641,9 +994,13 @@ class LoginModel
     public function getUserAvatarFilePath()
     {
         $query = $this->db->prepare("SELECT user_has_avatar FROM users WHERE user_id = :user_id");
-        $query->execute(array(':user_id' => $_SESSION['user_id']));
 
-        if ($query->fetch()->user_has_avatar) {
+        // Adjust for DB_SWITCH (PdoDbMore) [# 20140702.0333]
+        ////$query->execute(array(':user_id' => $_SESSION['user_id']));
+        qExecute($query, array(':user_id' => $_SESSION['user_id']));
+
+        ////if ($query->fetch()->user_has_avatar) {
+        if ($query->fetch(PDO::FETCH_OBJ)->user_has_avatar) { // Adjust for DB_SWITCH (PdoDbMore) [# 20140702.0331]
             return URL . AVATAR_PATH . $_SESSION['user_id'] . '.jpg';
         } else {
             return URL . AVATAR_PATH . AVATAR_DEFAULT_IMAGE;
@@ -685,7 +1042,11 @@ class LoginModel
             $target_file_path = AVATAR_PATH . $_SESSION['user_id'] . ".jpg";
             $this->resizeAvatarImage($_FILES['avatar_file']['tmp_name'], $target_file_path, AVATAR_SIZE, AVATAR_SIZE, AVATAR_JPEG_QUALITY, true);
             $query = $this->db->prepare("UPDATE users SET user_has_avatar = TRUE WHERE user_id = :user_id");
-            $query->execute(array(':user_id' => $_SESSION['user_id']));
+
+            // Adjust for DB_SWITCH (PdoDbMore) [# 20140702.0333]
+            ////$query->execute(array(':user_id' => $_SESSION['user_id']));
+            qExecute($query, array(':user_id' => $_SESSION['user_id']));
+
             Session::set('user_avatar_file', $this->getUserAvatarFilePath());
             $_SESSION["feedback_positive"][] = FEEDBACK_AVATAR_UPLOAD_SUCCESSFUL;
             return true;
@@ -834,15 +1195,22 @@ class LoginModel
         // check if that username exists
         $query = $this->db->prepare("SELECT user_id, user_email FROM users
                                      WHERE user_name = :user_name AND user_provider_type = :provider_type");
-        $query->execute(array(':user_name' => $user_name, ':provider_type' => 'DEFAULT'));
-        $count = $query->rowCount();
+
+        // Adjust for DB_SWITCH (PdoDbMore) [# 20140702.0333]
+        ////$query->execute(array(':user_name' => $user_name, ':provider_type' => 'DEFAULT'));
+        qExecute($query, array(':user_name' => $user_name, ':provider_type' => 'DEFAULT'));
+
+        ////$count = $query->rowCount();
+        $count = rowCounti($query, array(':user_name' => $user_name, ':provider_type' => 'DEFAULT')); // Adjust for DB_SWITCH (PdoDbMore) [# 20140702.0334]
+
         if ($count != 1) {
             $_SESSION["feedback_negative"][] = FEEDBACK_USER_DOES_NOT_EXIST;
             return false;
         }
 
         // get result
-        $result_user_row = $result = $query->fetch();
+        ////$result_user_row = $result = $query->fetch();
+        $result_user_row = $result = $query->fetch(PDO::FETCH_OBJ); // Adjust for DB_SWITCH (PdoDbMore) [# 20140702.0331]
         $user_email = $result_user_row->user_email;
 
         // set token (= a random hash string and a timestamp) into database
@@ -869,13 +1237,24 @@ class LoginModel
                                             SET user_password_reset_hash = :user_password_reset_hash,
                                                 user_password_reset_timestamp = :user_password_reset_timestamp
                                           WHERE user_name = :user_name AND user_provider_type = :provider_type");
-        $query_two->execute(array(':user_password_reset_hash' => $user_password_reset_hash,
+
+        // Adjust for DB_SWITCH (PdoDbMore) [# 20140702.0333]
+        ////$query_two->execute(array(':user_password_reset_hash' => $user_password_reset_hash,
+        ////                          ':user_password_reset_timestamp' => $temporary_timestamp,
+        ////                          ':user_name' => $user_name,
+        ////                          ':provider_type' => 'DEFAULT'));
+        qExecute($query_two, array(':user_password_reset_hash' => $user_password_reset_hash,
                                   ':user_password_reset_timestamp' => $temporary_timestamp,
                                   ':user_name' => $user_name,
                                   ':provider_type' => 'DEFAULT'));
 
         // check if exactly one row was successfully changed
-        $count =  $query_two->rowCount();
+        ////$count =  $query_two->rowCount();
+        $count = rowCounti($query_two, array(':user_password_reset_hash' => $user_password_reset_hash,
+                                  ':user_password_reset_timestamp' => $temporary_timestamp,
+                                  ':user_name' => $user_name,
+                                  ':provider_type' => 'DEFAULT')); // Adjust for DB_SWITCH (PdoDbMore) [# 20140702.0334]
+
         if ($count == 1) {
             return true;
         } else {
@@ -949,18 +1328,27 @@ class LoginModel
                                       WHERE user_name = :user_name
                                         AND user_password_reset_hash = :user_password_reset_hash
                                         AND user_provider_type = :user_provider_type");
-        $query->execute(array(':user_password_reset_hash' => $verification_code,
+
+        // Adjust for DB_SWITCH (PdoDbMore) [# 20140702.0333]
+        ////$query->execute(array(':user_password_reset_hash' => $verification_code,
+        ////                      ':user_name' => $user_name,
+        ////                      ':user_provider_type' => 'DEFAULT'));
+        qExecute($query, array(':user_password_reset_hash' => $verification_code,
                               ':user_name' => $user_name,
                               ':user_provider_type' => 'DEFAULT'));
 
         // if this user with exactly this verification hash code exists
-        if ($query->rowCount() != 1) {
+        ////if ($query->rowCount() != 1) {
+        if (rowCounti($query, array(':user_password_reset_hash' => $verification_code,
+                              ':user_name' => $user_name,
+                              ':user_provider_type' => 'DEFAULT')) != 1) { // Adjust for DB_SWITCH (PdoDbMore) [# 20140702.0334]
             $_SESSION["feedback_negative"][] = FEEDBACK_PASSWORD_RESET_COMBINATION_DOES_NOT_EXIST;
             return false;
         }
 
         // get result row (as an object)
-        $result_user_row = $query->fetch();
+        ////$result_user_row = $query->fetch();
+        $result_user_row = $query->fetch(PDO::FETCH_OBJ); // Adjust for DB_SWITCH (PdoDbMore) [# 20140702.0331]
         // 3600 seconds are 1 hour
         $timestamp_one_hour_ago = time() - 3600;
         // if password reset request was sent within the last hour (this timeout is for security reasons)
@@ -1030,13 +1418,22 @@ class LoginModel
                                         AND user_password_reset_hash = :user_password_reset_hash
                                         AND user_provider_type = :user_provider_type");
 
-        $query->execute(array(':user_password_hash' => $user_password_hash,
+        // Adjust for DB_SWITCH (PdoDbMore) [# 20140702.0333]
+        ////$query->execute(array(':user_password_hash' => $user_password_hash,
+        ////                      ':user_name' => $_POST['user_name'],
+        ////                      ':user_password_reset_hash' => $_POST['user_password_reset_hash'],
+        ////                      ':user_provider_type' => 'DEFAULT'));
+        qExecute($query, array(':user_password_hash' => $user_password_hash,
                               ':user_name' => $_POST['user_name'],
                               ':user_password_reset_hash' => $_POST['user_password_reset_hash'],
                               ':user_provider_type' => 'DEFAULT'));
 
         // check if exactly one row was successfully changed:
-        if ($query->rowCount() == 1) {
+        ////if ($query->rowCount() == 1) {
+        if (rowCounti($query, array(':user_password_hash' => $user_password_hash,
+                              ':user_name' => $_POST['user_name'],
+                              ':user_password_reset_hash' => $_POST['user_password_reset_hash'],
+                              ':user_provider_type' => 'DEFAULT')) == 1) { // Adjust for DB_SWITCH (PdoDbMore) [# 20140702.0334]
             // successful password change!
             $_SESSION["feedback_positive"][] = FEEDBACK_PASSWORD_CHANGE_SUCCESSFUL;
             return true;
@@ -1065,9 +1462,13 @@ class LoginModel
 
             // upgrade account type
             $query = $this->db->prepare("UPDATE users SET user_account_type = 2 WHERE user_id = :user_id");
-            $query->execute(array(':user_id' => $_SESSION["user_id"]));
 
-            if ($query->rowCount() == 1) {
+            // Adjust for DB_SWITCH (PdoDbMore) [# 20140702.0333]
+            ////$query->execute(array(':user_id' => $_SESSION["user_id"]));
+            qExecute($query, array(':user_id' => $_SESSION["user_id"]));
+
+            ////if ($query->rowCount() == 1) {
+            if (rowCounti($query, array(':user_id' => $_SESSION["user_id"])) == 1) { // Adjust for DB_SWITCH (PdoDbMore) [# 20140702.0334]
                 // set account type in session to 2
                 Session::set('user_account_type', 2);
                 $_SESSION["feedback_positive"][] = FEEDBACK_ACCOUNT_UPGRADE_SUCCESSFUL;
@@ -1082,9 +1483,13 @@ class LoginModel
             // ...
 
             $query = $this->db->prepare("UPDATE users SET user_account_type = 1 WHERE user_id = :user_id");
-            $query->execute(array(':user_id' => $_SESSION["user_id"]));
 
-            if ($query->rowCount() == 1) {
+            // Adjust for DB_SWITCH (PdoDbMore) [# 20140702.0333]
+            ////$query->execute(array(':user_id' => $_SESSION["user_id"]));
+            qExecute($query, array(':user_id' => $_SESSION["user_id"]));
+
+            ////if ($query->rowCount() == 1) {
+            if (rowCounti($query, array(':user_id' => $_SESSION["user_id"])) == 1) { // Adjust for DB_SWITCH (PdoDbMore) [# 20140702.0334]
                 // set account type in session to 1
                 Session::set('user_account_type', 1);
                 $_SESSION["feedback_positive"][] = FEEDBACK_ACCOUNT_DOWNGRADE_SUCCESSFUL;
@@ -1261,19 +1666,38 @@ class LoginModel
         $sql = "INSERT INTO users (user_name, user_email, user_creation_timestamp, user_active, user_provider_type, user_facebook_uid)
                 VALUES (:user_name, :user_email, :user_creation_timestamp, :user_active, :user_provider_type, :user_facebook_uid)";
         $query = $this->db->prepare($sql);
-        $query->execute(array(':user_name' => $clean_user_name_from_facebook,
+
+        // Adjust for DB_SWITCH (PdoDbMore) [# 20140702.0333]
+        ////$query->execute(array(':user_name' => $clean_user_name_from_facebook,
+        ////                      ':user_email' => $facebook_user_data["email"],
+        ////                      ':user_creation_timestamp' => $user_creation_timestamp,
+        ////                      ':user_active' => 1,
+        ////                      ':user_provider_type' => 'FACEBOOK',
+        ////                      ':user_facebook_uid' => $facebook_user_data["id"]));
+        qExecute($query, array(':user_name' => $clean_user_name_from_facebook,
                               ':user_email' => $facebook_user_data["email"],
                               ':user_creation_timestamp' => $user_creation_timestamp,
                               ':user_active' => 1,
                               ':user_provider_type' => 'FACEBOOK',
                               ':user_facebook_uid' => $facebook_user_data["id"]));
 
-        $count = $query->rowCount();
+        ////$count = $query->rowCount();
+        $count = rowCounti($query, array(':user_name' => $clean_user_name_from_facebook,
+                              ':user_email' => $facebook_user_data["email"],
+                              ':user_creation_timestamp' => $user_creation_timestamp,
+                              ':user_active' => 1,
+                              ':user_provider_type' => 'FACEBOOK',
+                              ':user_facebook_uid' => $facebook_user_data["id"])); // Adjust for DB_SWITCH (PdoDbMore) [# 20140702.0334]
+
         if ($count == 1) {
             $query = $this->db->prepare("SELECT user_id, user_name, user_email, user_account_type, user_provider_type
                                          FROM   users
                                          WHERE  user_name = :user_name AND user_provider_type = :provider_type");
-            $query->execute(array(':user_name' => $clean_user_name_from_facebook, ':provider_type' => 'FACEBOOK'));
+
+            // Adjust for DB_SWITCH (PdoDbMore) [# 20140702.0333]
+            ////$query->execute(array(':user_name' => $clean_user_name_from_facebook, ':provider_type' => 'FACEBOOK'));
+            qExecute($query, array(':user_name' => $clean_user_name_from_facebook, ':provider_type' => 'FACEBOOK'));
+
             $count_from_select_statement = $query->rowCount();
             if ($count_from_select_statement == 1) {
                 // registration successful
@@ -1307,9 +1731,13 @@ class LoginModel
     public function facebookUserIdExistsAlreadyInDatabase($facebook_user_data)
     {
         $query = $this->db->prepare("SELECT user_id FROM users WHERE user_facebook_uid = :user_facebook_uid");
-        $query->execute(array(':user_facebook_uid' => $facebook_user_data["id"]));
 
-        if ($query->rowCount() == 1) {
+        // Adjust for DB_SWITCH (PdoDbMore) [# 20140702.0333]
+        ////$query->execute(array(':user_facebook_uid' => $facebook_user_data["id"]));
+        qExecute($query, array(':user_facebook_uid' => $facebook_user_data["id"]));
+
+        ////if ($query->rowCount() == 1) {
+        if (rowCounti($query, array(':user_facebook_uid' => $facebook_user_data["id"])) == 1) { // Adjust for DB_SWITCH (PdoDbMore) [# 20140702.0334]
             return true;
         }
         // default return
@@ -1328,9 +1756,13 @@ class LoginModel
         $clean_user_name_from_facebook = str_replace(".", "", $facebook_user_data["username"]);
 
         $query = $this->db->prepare("SELECT user_id FROM users WHERE user_name = :clean_user_name_from_facebook");
-        $query->execute(array(':clean_user_name_from_facebook' => $clean_user_name_from_facebook));
 
-        if ($query->rowCount() == 1) {
+        // Adjust for DB_SWITCH (PdoDbMore) [# 20140702.0333]
+        ////$query->execute(array(':clean_user_name_from_facebook' => $clean_user_name_from_facebook));
+        qExecute($query, array(':clean_user_name_from_facebook' => $clean_user_name_from_facebook));
+
+        ////if ($query->rowCount() == 1) {
+        if (rowCounti($query, array(':clean_user_name_from_facebook' => $clean_user_name_from_facebook)) == 1) { // Adjust for DB_SWITCH (PdoDbMore) [# 20140702.0334]
             return true;
         }
         // default return
@@ -1345,9 +1777,13 @@ class LoginModel
     public function facebookUserEmailExistsAlreadyInDatabase($facebook_user_data)
     {
         $query = $this->db->prepare("SELECT user_id FROM users WHERE user_email = :facebook_email");
-        $query->execute(array(':facebook_email' => $facebook_user_data["email"]));
 
-        if ($query->rowCount() == 1) {
+        // Adjust for DB_SWITCH (PdoDbMore) [# 20140702.0333]
+        ////$query->execute(array(':facebook_email' => $facebook_user_data["email"]));
+        qExecute($query, array(':facebook_email' => $facebook_user_data["email"]));
+
+        ////if ($query->rowCount() == 1) {
+        if (rowCounti($query, array(':facebook_email' => $facebook_user_data["email"])) == 1) { // Adjust for DB_SWITCH (PdoDbMore) [# 20140702.0334]
             return true;
         }
         // default return
@@ -1371,9 +1807,13 @@ class LoginModel
             $n = $n+1;
             $new_username = $existing_name . $n;
             $query = $this->db->prepare("SELECT user_id FROM users WHERE user_name = :name_with_number");
-            $query->execute(array(':name_with_number' => $new_username));
+
+            // Adjust for DB_SWITCH (PdoDbMore) [# 20140702.0333]
+            ////$query->execute(array(':name_with_number' => $new_username));
+            qExecute($query, array(':name_with_number' => $new_username));
     	 	 
-    	 } while ($query->rowCount() == 1);
+    	 ////} while ($query->rowCount() == 1);
+    	 } while (rowCounti($query, array(':name_with_number' => $new_username)) == 1); // Adjust for DB_SWITCH (PdoDbMore) [# 20140702.0334]
 
     	return $new_username;
     }

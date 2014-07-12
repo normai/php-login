@@ -19,9 +19,11 @@ class Application
 
     /**
      * Starts the Application
-     * Takes the parts of the URL and loads the according controller & method and passes the parameter arguments to it
+     * Takes the parts of the URL and loads the according controller & method
+     *    and passes the parameter arguments to it
      * TODO: get rid of deep if/else nesting
-     * TODO: make the hardcoded locations ("error/index", "index.php", new Index()) dynamic, maybe via config.php
+     * TODO: make the hardcoded locations ("error/index", "index.php",
+     *    new Index()) dynamic, maybe via config.php
      */
     public function __construct()
     {
@@ -32,7 +34,8 @@ class Application
             // check for controller: does such a controller exist ?
             if (file_exists(CONTROLLER_PATH . $this->url_controller . '.php')) {
                 // if so, then load this file and create this controller
-                // example: if controller would be "car", then this line would translate into: $this->car = new car();
+                // example: if controller would be "car", then this line would
+                //    translate into: $this->car = new car();
                 require CONTROLLER_PATH . $this->url_controller . '.php';
                 $this->url_controller = new $this->url_controller();
 
@@ -86,7 +89,7 @@ class Application
             $url = explode('/', $url);
 
             // Put URL parts into according properties
-            // By the way, the syntax here if just a short form of if/else, called "Ternary Operators"
+            // By the way, the syntax here is just a short form of if/else, called "Ternary Operators"
             // http://davidwalsh.name/php-shorthand-if-else-ternary-operators
             $this->url_controller = (isset($url[0]) ? $url[0] : null);
             $this->url_action = (isset($url[1]) ? $url[1] : null);

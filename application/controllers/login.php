@@ -47,8 +47,21 @@ class Login extends Controller
             // if YES, then move user to dashboard/index (btw this is a browser-redirection, not a rendered view!)
             header('location: ' . URL . 'dashboard/index');
         } else {
-            // if NO, then move user to login/index (login form) again
-            header('location: ' . URL . 'login/index');
+
+            // (note # 20140628.0341)
+            // If I inserted debug output e.g. via Kint::d(), then below
+            // function header() causes error "Warning: Cannot modify header
+            // information - headers already sent by ...". So quick'n'dirty
+            // wrap it. Just a try envelops does not help here. We need to
+            // find out whether the header is already sent or not.
+            // And the replace option header(.., false) also works only, if
+            // the header was not yet sent.
+            if (! headers_sent())
+            {
+                // [original line]
+                // if NO, then move user to login/index (login form) again
+                header('location: ' . URL . 'login/index');
+            }
         }
     }
 
