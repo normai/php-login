@@ -1,6 +1,6 @@
 <?php
 
-   // file : /trunk/php-login-xdb/PdoDbMore.php
+   // file : /php-login-xdb/application/PdoDbMore.php
    // id : # 20140702.0211
    // license : The MIT License (http://www.opensource.org/licenses/mit-license.php)
    // copyright : 2014 by Norbert C. Maier

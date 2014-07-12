@@ -7,7 +7,7 @@
  */
 use Gregwar\Captcha\CaptchaBuilder;
 
-include_once "/../../PdoDbMore.php"; // (line # 20140702.0231)
+include_once "/../../application/PdoDbMore.php"; // (line # 20140702.0231)
 
 class LoginModel
 {

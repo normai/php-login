@@ -136,7 +136,7 @@ towards database abstraction are welcome.
    This chapter describes the patch process. It shall be a
 reproducable step by step guide (to some degree).
 
-   (5.1) Add file PdoDbMore.php to the project root directory /php-login/.
+   (5.1) Add file PdoDbMore.php to directory /php-login-xdb/application/.
 
    (5.2.1) Table creation
 

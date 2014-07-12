@@ -43,16 +43,16 @@ class Database extends PDO
             // (seq # 20140628.0331)
             // Paranoia around indifferent behaviour in sequence # 20140627.1852
             // Hm .. file_exists() also returns true for wrong filenames! ?????
-            ////$b = file_exists('../users.sqlite3');
-            ////echo("(Debug # 20140628.0332) File '../users.sqlite3' exists: " . (int) $b );
+            ////$b = file_exists('../application/users.sqlite3');
+            ////echo("(Debug # 20140628.0332) File '../application/users.sqlite3' exists: " . (int) $b );
 
             // (seq # 20140627.1852)
             // note : Curiously this creates a Database object even if the
             //    filename is wrong. And with d() and in the NetBeans debugger,
             //    I cannot see any difference to a valid Database object.
             // note : Does the absolute path help? Yes!
-            ////parent::__construct('sqlite:../users.sqlite3');
-            ////parent::__construct('sqlite:G:/work/downtown/php-login/trunk/php-login/users.sqlite3');
+            ////parent::__construct('sqlite:../application/users.sqlite3');
+            ////parent::__construct('sqlite:G:/work/downtown/php-login/trunk/php-login-xdb/application/users.sqlite3');
             parent::__construct('sqlite:' . DB_FILE_ABS);
         } else {
             die('Fatal - Database switch invalid.');

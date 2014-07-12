@@ -7,7 +7,7 @@
 //          related sequences in the project.
 
 
-include_once "/../../PdoDbMore.php"; // (PdoDbMore) (MYSETTING)
+include_once "/../../application/PdoDbMore.php"; // (PdoDbMore) (MYSETTING)
 //>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
 // Uncomment one of the following three lines below to select the
 //  wanted database type. And adjust the according database
@@ -146,7 +146,7 @@ else if (DB_SWITCH == PdoDbMore::SQLite)
    define('DB_NAME', '');
    define('DB_USER', '');
    define('DB_PASS', '');
-   define('DB_FILE', '../php-login-xdb/users.sqlite3');
+   define('DB_FILE', '../php-login-xdb/application/users.sqlite3');
 }
 else
 {

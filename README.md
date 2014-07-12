@@ -3,15 +3,15 @@
 ### *This is php-login 2.0.1 for MySQL, PostgreSQL and SQLite*
 
 *What? This is [php-login](https://github.com/panique/php-login),
-with the only difference, that it allows to use not only MySQL,
-but PostgreSQL and SQLite as well as database.
-The current version is a first _proof-of-concept_ of this adjustion.*
+with the only difference, that it allows to use for the database
+not only MySQL, but PostgreSQL and SQLite as well.
+The current version is a first _proof-of-concept_.*
 
-*To read more about the difference between _php-login_ and _php-login-xdb_
-please see [about.txt](./about.txt).*
+*To read more about the difference between _php-login_ and _php-login-xdb_,
+see [_tutorial/about.txt](./_tutorial/about.txt).*
 
-*To read the original [php-login](https://github.com/panique/php-login)
-description, just continue with the unchanged original text below.*
+*The original [php-login](https://github.com/panique/php-login)
+description follows below.*
 
 ---------------
 
