@@ -1,6 +1,6 @@
 *2014-July-12*
 
-### *This is _php-login 0.2.1_ for MySQL, PostgreSQL and SQLite*
+### *This is php-login 2.0.1 for MySQL, PostgreSQL and SQLite*
 
 *What? This is [php-login](https://github.com/panique/php-login),
 with the only difference, that it allows to use not only MySQL,
